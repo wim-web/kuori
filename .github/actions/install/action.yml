@@ -1,0 +1,12 @@
+name: "install kuori"
+description: "install kuori"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Download latest kuori binary using gh CLI
+      shell: bash
+      run: |
+        gh release download --repo wim-web/kuori --latest --pattern 'kuori_*_x86_64-unknown-linux-musl.tar.gz'
+        tar -xzf kuori_*_x86_64-unknown-linux-musl.tar.gz
+        sudo mv kuori /usr/local/bin/kuori
