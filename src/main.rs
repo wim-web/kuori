@@ -3,6 +3,7 @@ mod ssh;
 mod ssh_config;
 mod util;
 
+use clap::{arg, Parser};
 use config::Config;
 use ssh::{KuoriClient, SessionManager};
 use ssh_config::{read_ssh_config, SshConfigPath};
@@ -10,13 +11,14 @@ use std::{
     fs,
     path::{Path, PathBuf},
 };
-use structopt::StructOpt;
 
 // コマンドライン引数
-#[derive(StructOpt, Debug)]
+#[derive(Parser, Debug)]
 struct CliArgs {
-    #[structopt(short, long, parse(from_os_str))]
+    #[arg(short, long)]
     config: PathBuf, // --config で設定ファイルを指定
+    #[arg(long)]
+    task_names: Option<String>,
 }
 
 fn load_config(config_path: &PathBuf) -> anyhow::Result<Config> {
@@ -27,7 +29,7 @@ fn load_config(config_path: &PathBuf) -> anyhow::Result<Config> {
 
 #[tokio::main]
 async fn main() {
-    let args = CliArgs::from_args();
+    let args = CliArgs::parse();
 
     let config = load_config(&args.config).unwrap();
     let ssh_config = read_ssh_config(SshConfigPath::default()).unwrap();
@@ -35,7 +37,23 @@ async fn main() {
     let mut session_manager = SessionManager::new();
     let client = KuoriClient::new(ssh_config);
 
+    let task_names = args.task_names.map(|names| {
+        names
+            .split(',')
+            .map(|name| name.to_string())
+            .collect::<Vec<String>>()
+    });
+
+    let should_execute = |task: String| match &task_names {
+        Some(tasks) => tasks.contains(&task),
+        None => true,
+    };
+
     for task in config.tasks {
+        if !should_execute(task.name) {
+            continue;
+        }
+
         let script_path = Path::new(&task.script_path);
         let working_dir = Path::new(&task.working_dir);
 
