@@ -9,6 +9,8 @@ runs:
       run: |
         gh release download --repo wim-web/kuori --pattern 'kuori-x86_64-unknown-linux-gnu'
 
+        ls
+
         mv kuori-x86_64-unknown-linux-gnu ${{ github.workspace }}/bin/kuori
         chmod +x ${{ github.workspace }}/bin/kuori
         echo ${{ github.workspace }}/bin >> $GITHUB_PATH
