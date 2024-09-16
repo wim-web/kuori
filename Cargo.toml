@@ -1,0 +1,14 @@
+[package]
+name = "kuori"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+ssh2 = "0.9.4"
+ssh2-config = "0.2.3"
+anyhow = "1.0.89"
+tokio = { version = "1", features = ["full"] }
+rand = "0.8.5"
+structopt = "0.3.26"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
