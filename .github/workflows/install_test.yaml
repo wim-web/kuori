@@ -1,0 +1,10 @@
+name: install test
+on:
+  pull_request:
+    
+jobs:
+  release-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: wim-web/kuori/.github/actions/install@main
+      - run: type kuori

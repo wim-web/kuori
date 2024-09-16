@@ -1,36 +1,28 @@
 name: Release
 on:
-  release:
-    types: [created]
-      
-permissions:
-  contents: write
+  push:
+    tags:
+      - 'v*.*.*'
   
+permissions:
+  contents: write 
+
 jobs:
-  release-linux:
-    runs-on: ubuntu-22.04
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - target: x86_64-unknown-linux-musl
-            archive: tar.gz
-          # not supported yet
-          # - target: aarch64-apple-darwin
-          #   archive: zip
+  build:
+    runs-on: ubuntu-latest
+    
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608 # v4.1.0
+      - uses: actions/checkout@v4
+
+      - name: cargo build
+        run: |
+          cargo build --release
+          mv target/release/kuori kuori-x86_64-unknown-linux-gnu
         
-      - name: Compile and release
-        uses: rust-build/rust-build.action@v1.4.5
+      - name: Create GitHub Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          RUSTTARGET: ${{ matrix.target }}
-          ARCHIVE_TYPES: ${{ matrix.archive }}
-          STATIC_LINKING: false
-
-      
-
-      
+        run: |
+          gh release create ${{ github.ref }} \
+            target/release/kuori#kuori-x86_64-unknown-linux-gnu \
+            --title "Release ${{ github.ref }}"
