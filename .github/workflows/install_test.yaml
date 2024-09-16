@@ -10,6 +10,7 @@ jobs:
       - uses: wim-web/kuori/.github/actions/install@install_action
       
       - run: |
-          ls ${{ github.workspace }}/bin
-      
+         file ${{ github.workspace }}/bin/kuori
+      - run: ldd ${{ github.workspace }}/bin/kuori
+      - run: strace ${{ github.workspace }}/bin/kuori
       - run: kuori
