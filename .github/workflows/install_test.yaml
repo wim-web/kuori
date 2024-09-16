@@ -9,4 +9,8 @@ jobs:
     steps:
       - uses: wim-web/kuori/.github/actions/install@install_action
       
+      - run: |
+          echo $GITHUB_PATH
+          echo $PATH
+      
       - run: kuori
