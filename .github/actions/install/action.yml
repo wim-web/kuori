@@ -7,14 +7,9 @@ runs:
     - name: Download latest kuori binary using gh CLI
       shell: bash
       run: |
-        gh release download --repo wim-web/kuori --pattern 'kuori_*_x86_64-unknown-linux-musl.tar.gz'
-        tar -xzf kuori_*_x86_64-unknown-linux-musl.tar.gz
+        gh release download --repo wim-web/kuori --pattern 'kuori_x86_64-unknown-linux-gnu'
 
-        mkdir -p ${{ github.workspace }}/bin
         mv kuori ${{ github.workspace }}/bin
-
-        ls ${{ github.workspace }}/bin
-
         chmod +x ${{ github.workspace }}/bin/kuori
         echo ${{ github.workspace }}/bin >> $GITHUB_PATH
       env:

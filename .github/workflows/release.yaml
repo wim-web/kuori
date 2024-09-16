@@ -1,8 +1,8 @@
 name: Release
 on:
   push:
-  # release:
-  #   types: [created]
+    tags:
+      - 'v*.*.*'
   
 permissions:
   contents: write 
@@ -22,9 +22,9 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release create test-v1 \
+          gh release create ${{ github.ref }} \
             target/release/kuori#kuori-x86_64-unknown-linux-gnu \
-            --title "Release test"
+            --title "Release ${{ github.ref }}"
       
 
       

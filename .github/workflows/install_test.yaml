@@ -1,6 +1,6 @@
 name: install test
 on:
-  # pull_request:
+  pull_request:
     
     
 jobs:
@@ -9,8 +9,6 @@ jobs:
     steps:
       - uses: wim-web/kuori/.github/actions/install@install_action
       
-      - run: |
-         file ${{ github.workspace }}/bin/kuori
-      - run: ldd ${{ github.workspace }}/bin/kuori
-      - run: strace ${{ github.workspace }}/bin/kuori
+
+
       - run: kuori
