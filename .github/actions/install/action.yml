@@ -12,6 +12,7 @@ runs:
 
         mkdir -p ${{ github.workspace }}/bin
         mv kuori ${{ github.workspace }}/bin
+        chmod +x ${{ github.workspace }}/bin/kuori
         echo ${{ github.workspace }}/bin >> $GITHUB_PATH
       env:
         GH_TOKEN: ${{ github.token }}
