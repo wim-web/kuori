@@ -11,15 +11,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - run: cargo build --release --out-dir .
+      - run: cargo build --release
         
-      - run: ./kuori
+      - run: target/release/kuori || true
 
-      # - name: Upload release binary
-      #   uses: actions/upload-artifact@v3
-      #   with:
-      #     name: ${{ matrix.target }}-binary
-      #     path: target/${{ matrix.target }}/release/your-binary-name
+      - name: Create GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create test-v1 \
+            target/release/kuori#kuori-x86_64-unknown-linux-gnu \
+            --title "Release test"
       
 
       
