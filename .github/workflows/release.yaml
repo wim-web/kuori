@@ -11,8 +11,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Cross compile for ${{ matrix.target }}
-        run: cross build --release
+      - run: cargo build --release
         
       - run: ./kuori
 
