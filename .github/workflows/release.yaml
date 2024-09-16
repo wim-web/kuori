@@ -9,10 +9,11 @@ jobs:
     runs-on: ubuntu-latest
 
     strategy:
+      fail-fast: false
       matrix:
         target:
           - x86_64-unknown-linux-gnu   # Linux AMD64
-          - aarch64-apple-darwin        # macOS ARM64
+          # - aarch64-apple-darwin        # macOS ARM64
 
     steps:
       - uses: actions/checkout@v4
