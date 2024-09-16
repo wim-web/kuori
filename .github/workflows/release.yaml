@@ -7,31 +7,20 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-
-    strategy:
-      fail-fast: false
-      matrix:
-        target:
-          - x86_64-unknown-linux-gnu   # Linux AMD64
-          # - aarch64-apple-darwin        # macOS ARM64
-
+    
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install cross
-        run: cargo install cross
-
-      - name: Install target toolchain
-        run: rustup target add ${{ matrix.target }}
-
       - name: Cross compile for ${{ matrix.target }}
-        run: cross build --target ${{ matrix.target }} --release
+        run: cross build --release
+        
+      - run: ./kuori
 
-      - name: Upload release binary
-        uses: actions/upload-artifact@v3
-        with:
-          name: ${{ matrix.target }}-binary
-          path: target/${{ matrix.target }}/release/your-binary-name
+      # - name: Upload release binary
+      #   uses: actions/upload-artifact@v3
+      #   with:
+      #     name: ${{ matrix.target }}-binary
+      #     path: target/${{ matrix.target }}/release/your-binary-name
       
 
       
