@@ -10,7 +10,6 @@ jobs:
       - uses: wim-web/kuori/.github/actions/install@install_action
       
       - run: |
-          echo $GITHUB_PATH
-          echo $PATH
+          ls ${{ github.workspace }}/bin
       
       - run: kuori
