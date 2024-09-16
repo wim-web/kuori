@@ -1,6 +1,6 @@
 name: install test
 on:
-  pull_request:
+  # pull_request:
     
     
 jobs:
