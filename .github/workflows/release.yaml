@@ -1,0 +1,36 @@
+name: Release
+on:
+  release:
+    types: [created]
+      
+permissions:
+  contents: write
+  
+jobs:
+  release-linux:
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-musl
+            archive: tar.gz
+          # not supported yet
+          # - target: aarch64-apple-darwin
+          #   archive: zip
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608 # v4.1.0
+        
+      - name: Compile and release
+        uses: rust-build/rust-build.action@v1.4.5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          RUSTTARGET: ${{ matrix.target }}
+          ARCHIVE_TYPES: ${{ matrix.archive }}
+          STATIC_LINKING: false
+
+      
+
+      
