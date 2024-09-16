@@ -9,6 +9,9 @@ runs:
       run: |
         gh release download --repo wim-web/kuori --pattern 'kuori_*_x86_64-unknown-linux-musl.tar.gz'
         tar -xzf kuori_*_x86_64-unknown-linux-musl.tar.gz
-        sudo mv kuori /usr/local/bin/kuori
+
+        mkdir -p ${{ github.workspace }}/bin
+        mv kuori ${{ github.workspace }}/bin
+        echo ${{ github.workspace }}/bin >> $GITHUB_PATH
       env:
         GH_TOKEN: ${{ github.token }}
