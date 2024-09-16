@@ -4,6 +4,7 @@ use std::collections::HashMap;
 // タスクの定義
 #[derive(Debug, Deserialize)]
 pub struct Task {
+    pub name: String,
     pub host: String,
     pub script_path: String,
     pub working_dir: String,
