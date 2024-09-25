@@ -26,3 +26,7 @@ Cargo.lock
 
 # 
 config.json
+
+
+local_install.bash
+test.bash
