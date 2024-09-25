@@ -111,12 +111,12 @@ impl KuoriClient {
         );
 
         // リモートでスクリプトを実行
-        let output = self.run_remote_command(session, command)?;
+        let result = self.run_remote_command(session, command);
 
         // スクリプトを削除
         self.run_remote_command(session, format!("rm {}", remote_script_path))?;
 
-        Ok(output)
+        result
     }
 
     // ローカルスクリプトをリモートに転送
