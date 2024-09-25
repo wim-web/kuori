@@ -4,7 +4,7 @@ use ssh2_config::SshConfig;
 use std::{
     collections::{hash_map::Entry, HashMap},
     fs::File,
-    io::{Read, Write},
+    io::{self, Read, Write},
     net::TcpStream,
     path::Path,
 };
@@ -84,7 +84,7 @@ impl KuoriClient {
         remote_script_dir: &Path,
         environments: &HashMap<String, String>,
         use_sudo: bool,
-    ) -> anyhow::Result<String> {
+    ) -> anyhow::Result<()> {
         let env_command: String = environments
             .iter()
             .map(|(key, value)| format!("export {}={};", key, value))
@@ -139,12 +139,19 @@ impl KuoriClient {
     }
 
     // リモートでコマンドを実行して結果を返す
-    fn run_remote_command(&self, session: &Session, command: String) -> anyhow::Result<String> {
+    fn run_remote_command(&self, session: &Session, command: String) -> anyhow::Result<()> {
         let mut channel = session.channel_session()?;
         channel.exec(&command)?;
 
-        let mut output = String::new();
-        channel.read_to_string(&mut output)?;
+        let mut buffer = [0; 4096]; // 一度に読み取るバッファサイズを指定
+        loop {
+            let n = channel.read(&mut buffer)?;
+            if n == 0 {
+                break; // 読み込みが終了したらループを抜ける
+            }
+            io::stdout().write_all(&buffer[..n])?; // 取得したデータを即座に標準出力に表示
+            io::stdout().flush()?; // バッファをフラッシュしてリアルタイムで表示
+        }
 
         channel.wait_close()?;
         let exit_status = channel.exit_status()?;
@@ -152,6 +159,6 @@ impl KuoriClient {
             anyhow::bail!("コマンド実行中にエラーが発生しました: {}", exit_status);
         }
 
-        Ok(output)
+        Ok(())
     }
 }

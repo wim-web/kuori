@@ -57,7 +57,7 @@ async fn main() {
         let script_path = Path::new(&task.script_path);
         let working_dir = Path::new(&task.working_dir);
 
-        let output = client
+        client
             .exec_script(
                 &mut session_manager,
                 &task.host,
@@ -67,7 +67,5 @@ async fn main() {
                 task.sudo,
             )
             .unwrap();
-
-        println!("Task on host {} output:\n{}", task.host, output);
     }
 }
