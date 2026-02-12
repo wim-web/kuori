@@ -80,6 +80,7 @@ kuori --config config.example.json --task-names deploy-api
 - `tasks` が空でないこと
 - 各 `task` の `name` / `host` / `script_path` / `working_dir` が空文字でないこと
 - `task.name` が重複していないこと
+- `task.timeout_sec` を指定した場合に 1 以上であること
 
 ## コマンド一覧
 
@@ -90,6 +91,22 @@ kuori --config config.example.json --task-names deploy-api
 ```bash
 kuori run --config config.json
 kuori run --config config.json --task-names deploy-api,restart-worker
+kuori run --config config.json --dry-run
+```
+
+`--dry-run` を付けると、SSH接続せずに実行予定タスクを表示します。
+
+`timeout_sec`（秒）と `retry`（再試行回数）を `task` ごとに指定できます。
+
+- `timeout_sec`: 1回の実行で許可する最大秒数（未指定で無制限）
+- `retry`: 失敗時の再試行回数（`0` で再試行なし）
+
+`example` を使う場合:
+
+```bash
+kuori validate --config config.example.json
+kuori run --config config.example.json
+kuori run --config config.example.json --dry-run
 ```
 
 ### `validate`
