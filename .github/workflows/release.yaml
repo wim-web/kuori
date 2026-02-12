@@ -16,7 +16,9 @@ jobs:
 
       - name: cargo build
         run: |
-          cargo build --release
+          VERSION="${GITHUB_REF_NAME#v}"
+          SHORT_SHA="${GITHUB_SHA::7}"
+          KUORI_SEMVER="${VERSION}" KUORI_GIT_SHA="${SHORT_SHA}" cargo build --release
           mv target/release/kuori kuori-x86_64-unknown-linux-gnu
         
       - name: Create GitHub Release
