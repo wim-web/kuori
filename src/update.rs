@@ -1,8 +1,10 @@
 use anyhow::{bail, Context};
 use std::{
     fs,
+    fs::File,
+    io,
     path::{Path, PathBuf},
-    process::{self, Command},
+    process,
 };
 
 const REPOSITORY: &str = "wim-web/kuori";
@@ -49,28 +51,30 @@ fn staging_binary_path(current_exe: &Path) -> anyhow::Result<PathBuf> {
 }
 
 fn download_latest_release(asset_name: &str, output_path: &Path) -> anyhow::Result<()> {
-    let output = Command::new("gh")
-        .args([
-            "release",
-            "download",
-            "--repo",
-            REPOSITORY,
-            "--latest",
-            "--pattern",
-            asset_name,
-            "--clobber",
-        ])
-        .arg("--output")
-        .arg(output_path)
-        .output()
-        .context("`gh` コマンドの実行に失敗しました。GitHub CLI をインストールしてください")?;
+    let url = format!(
+        "https://github.com/{}/releases/latest/download/{}",
+        REPOSITORY, asset_name
+    );
+    let response = ureq::get(&url)
+        .set("User-Agent", "kuori-self-update")
+        .call()
+        .map_err(|error| anyhow::anyhow!("最新リリースの取得に失敗しました: {}", error))?;
+    let status_code = response.status();
 
-    if output.status.success() {
-        return Ok(());
+    let mut file = File::create(output_path).with_context(|| {
+        format!(
+            "更新用ファイルの作成に失敗しました: {}",
+            output_path.display()
+        )
+    })?;
+    let mut reader = response.into_reader();
+    io::copy(&mut reader, &mut file).context("更新バイナリの保存に失敗しました")?;
+
+    if !(200..300).contains(&status_code) {
+        bail!("最新リリースの取得に失敗しました: HTTP {}", status_code);
     }
 
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    bail!("最新リリースの取得に失敗しました: {}", stderr.trim());
+    Ok(())
 }
 
 fn set_executable_permission(path: &Path) -> anyhow::Result<()> {
