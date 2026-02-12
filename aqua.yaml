@@ -9,5 +9,3 @@
 registries:
 - type: standard
   ref: v4.220.1 # renovate: depName=aquaproj/aqua-registry
-packages:
-- name: cue-lang/cue@v0.10.0
