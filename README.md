@@ -1,39 +1,9 @@
 ## config
 
-### example
-
-`/Users/wim/.codex/worktrees/602e/kuori/config.example.json`:
-
-```json
-{
-  "tasks": [
-    {
-      "name": "deploy-api",
-      "host": "api-server",
-      "script_path": "./scripts/deploy-api.sh",
-      "working_dir": "/tmp",
-      "sudo": false,
-      "environments": {
-        "RUST_LOG": "info",
-        "APP_ENV": "production"
-      }
-    },
-    {
-      "name": "restart-worker",
-      "host": "worker-server",
-      "script_path": "./scripts/restart-worker.sh",
-      "working_dir": "/tmp",
-      "sudo": true,
-      "environments": {}
-    }
-  ]
-}
-```
-
 ### validate
 
 ```
-kuori validate --config config.json
+kuori validate --config config.example.json
 ```
 
 `kuori` 実行時に、以下を自動で検証します。
