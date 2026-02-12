@@ -16,39 +16,102 @@ use std::{
 
 // コマンドライン引数
 #[derive(Parser, Debug)]
-#[command(disable_version_flag = true)]
+#[command(
+    name = "kuori",
+    disable_version_flag = true,
+    about = "SSH経由で複数ホストへスクリプトを配布・実行するCLIタスクランナー",
+    long_about = "kuori は JSON で定義したタスクを順番に実行する CLI です。\n\
+各タスクは `host` と `script_path` を持ち、指定したホストへスクリプトを転送して実行します。\n\
+`run` 実行時には設定ファイルのバリデーションも自動で行われます。",
+    after_help = "例:\n\
+  kuori validate --config config.json\n\
+  kuori run --config config.json\n\
+  kuori run --config config.json --task-names deploy-api,restart-worker\n\
+  kuori --config config.json  # 後方互換: `run` として実行\n"
+)]
 struct CliArgs {
-    #[arg(short = 'v', long = "version", action = clap::ArgAction::SetTrue)]
+    #[arg(
+        short = 'v',
+        long = "version",
+        action = clap::ArgAction::SetTrue,
+        help = "バージョン情報を表示して終了"
+    )]
     version: bool,
 
     #[command(subcommand)]
     command: Option<CliCommand>,
 
     // 後方互換: `kuori --config ...` は `run` として扱う
-    #[arg(short, long)]
+    #[arg(
+        short,
+        long,
+        value_name = "FILE",
+        help = "設定ファイル(JSON)のパス（サブコマンド未指定時のみ有効）",
+        long_help = "設定ファイル(JSON)のパス。\n\
+サブコマンド未指定時は `run --config <FILE>` と同じ動作になります。"
+    )]
     config: Option<PathBuf>, // --config で設定ファイルを指定
-    #[arg(long)]
+    #[arg(
+        long,
+        value_name = "NAMES",
+        help = "実行対象 task.name をカンマ区切りで指定（サブコマンド未指定時のみ有効）",
+        long_help = "実行対象の task.name をカンマ区切りで指定します。\n\
+例: --task-names deploy-api,restart-worker\n\
+サブコマンド未指定時は `run --task-names <NAMES>` と同じ動作になります。"
+    )]
     task_names: Option<String>,
 }
 
 #[derive(Subcommand, Debug)]
 enum CliCommand {
+    #[command(
+        about = "設定ファイルに定義されたタスクを実行",
+        long_about = "設定ファイルを読み込み、バリデーションに成功したタスクを順番に実行します。\n\
+`--task-names` を指定すると対象タスクを絞り込めます。"
+    )]
     Run(RunArgs),
+    #[command(
+        about = "設定ファイルの妥当性のみ検証",
+        long_about = "設定ファイル(JSON)の形式と必須項目を検証します。\n\
+実行は行わず、問題がある場合のみエラーで終了します。"
+    )]
     Validate(ValidateArgs),
+    #[command(
+        about = "kuori を最新バージョンへ更新",
+        long_about = "実行環境に応じて kuori を自己更新します。\n\
+macOS: `cargo install --git` を利用\n\
+linux/x86_64/gnu: GitHub Releases の最新バイナリを利用"
+    )]
     Update,
 }
 
 #[derive(Args, Debug)]
 struct RunArgs {
-    #[arg(short, long)]
+    #[arg(
+        short,
+        long,
+        value_name = "FILE",
+        help = "設定ファイル(JSON)のパス"
+    )]
     config: PathBuf,
-    #[arg(long)]
+    #[arg(
+        long,
+        value_name = "NAMES",
+        help = "実行対象 task.name をカンマ区切りで指定",
+        long_help = "実行対象の task.name をカンマ区切りで指定します。\n\
+例: --task-names deploy-api,restart-worker"
+    )]
     task_names: Option<String>,
 }
 
 #[derive(Args, Debug)]
 struct ValidateArgs {
-    #[arg(short, long)]
+    #[arg(
+        short,
+        long,
+        value_name = "FILE",
+        help = "検証対象の設定ファイル(JSON)のパス"
+    )]
     config: PathBuf,
 }
 
