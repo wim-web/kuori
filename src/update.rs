@@ -4,13 +4,31 @@ use std::{
     fs::File,
     io,
     path::{Path, PathBuf},
-    process,
+    process::{self, Command},
 };
 
 const REPOSITORY: &str = "wim-web/kuori";
+const REPOSITORY_GIT_URL: &str = "https://github.com/wim-web/kuori.git";
+const PACKAGE_NAME: &str = "kuori";
 const LINUX_X86_64_ASSET_NAME: &str = "kuori-x86_64-unknown-linux-gnu";
 
 pub fn run() -> anyhow::Result<()> {
+    if cfg!(target_os = "macos") {
+        return run_update_via_cargo_install();
+    }
+
+    if cfg!(all(
+        target_os = "linux",
+        target_arch = "x86_64",
+        target_env = "gnu"
+    )) {
+        return run_update_via_release_asset();
+    }
+
+    bail!("この環境向けの更新は未対応です");
+}
+
+fn run_update_via_release_asset() -> anyhow::Result<()> {
     let asset_name = release_asset_name()?;
     let current_exe =
         std::env::current_exe().context("現在の実行ファイルパスの取得に失敗しました")?;
@@ -31,16 +49,73 @@ pub fn run() -> anyhow::Result<()> {
     Ok(())
 }
 
-fn release_asset_name() -> anyhow::Result<&'static str> {
-    if cfg!(all(
-        target_os = "linux",
-        target_arch = "x86_64",
-        target_env = "gnu"
-    )) {
-        return Ok(LINUX_X86_64_ASSET_NAME);
+fn run_update_via_cargo_install() -> anyhow::Result<()> {
+    let latest_tag = latest_tag_from_remote()?;
+    let output = Command::new("cargo")
+        .args([
+            "install",
+            "--git",
+            REPOSITORY_GIT_URL,
+            "--tag",
+            &latest_tag,
+            "--force",
+            PACKAGE_NAME,
+        ])
+        .output()
+        .context("`cargo` コマンドの実行に失敗しました")?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        bail!("`cargo install` に失敗しました: {}", stderr.trim());
     }
 
-    bail!("この環境向けの更新は未対応です（linux/x86_64/gnu のみ対応）");
+    println!("kuori を最新バージョンに更新しました。tag: {}", latest_tag);
+    Ok(())
+}
+
+fn latest_tag_from_remote() -> anyhow::Result<String> {
+    let output = Command::new("git")
+        .args(["ls-remote", "--tags", "--refs", REPOSITORY_GIT_URL])
+        .output()
+        .context("`git` コマンドの実行に失敗しました")?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        bail!("最新タグ取得に失敗しました: {}", stderr.trim());
+    }
+
+    let stdout = String::from_utf8(output.stdout).context("タグ一覧のデコードに失敗しました")?;
+    pick_latest_semver_tag(&stdout).context("semver形式のタグが見つかりませんでした")
+}
+
+fn pick_latest_semver_tag(input: &str) -> Option<String> {
+    input
+        .lines()
+        .filter_map(parse_semver_tag_from_ls_remote_line)
+        .max_by(|(_, a), (_, b)| a.cmp(b))
+        .map(|(tag, _)| tag)
+}
+
+fn parse_semver_tag_from_ls_remote_line(line: &str) -> Option<(String, (u64, u64, u64))> {
+    let (_, ref_name) = line.split_once('\t')?;
+    let tag = ref_name.strip_prefix("refs/tags/")?;
+    let version = parse_semver(tag)?;
+    Some((tag.to_string(), version))
+}
+
+fn parse_semver(tag: &str) -> Option<(u64, u64, u64)> {
+    let version = tag.strip_prefix('v')?;
+    let mut parts = version.split('.');
+
+    let major = parts.next()?.parse::<u64>().ok()?;
+    let minor = parts.next()?.parse::<u64>().ok()?;
+    let patch = parts.next()?.parse::<u64>().ok()?;
+
+    if parts.next().is_some() {
+        return None;
+    }
+
+    Some((major, minor, patch))
 }
 
 fn staging_binary_path(current_exe: &Path) -> anyhow::Result<PathBuf> {
@@ -75,6 +150,46 @@ fn download_latest_release(asset_name: &str, output_path: &Path) -> anyhow::Resu
     }
 
     Ok(())
+}
+
+fn release_asset_name() -> anyhow::Result<&'static str> {
+    if cfg!(all(
+        target_os = "linux",
+        target_arch = "x86_64",
+        target_env = "gnu"
+    )) {
+        return Ok(LINUX_X86_64_ASSET_NAME);
+    }
+
+    bail!("この環境向けの更新は未対応です（linux/x86_64/gnu のみ対応）");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::pick_latest_semver_tag;
+
+    #[test]
+    fn picks_latest_tag() {
+        let input = "\
+aaaaaaaa\trefs/tags/v1.2.9
+bbbbbbbb\trefs/tags/v1.10.0
+cccccccc\trefs/tags/v1.3.0
+";
+        let latest = pick_latest_semver_tag(input);
+        assert_eq!(latest.as_deref(), Some("v1.10.0"));
+    }
+
+    #[test]
+    fn ignores_non_semver_tags() {
+        let input = "\
+aaaaaaaa\trefs/tags/latest
+bbbbbbbb\trefs/tags/v1.2
+cccccccc\trefs/tags/v2.0.0-rc.1
+dddddddd\trefs/tags/v2.0.0
+";
+        let latest = pick_latest_semver_tag(input);
+        assert_eq!(latest.as_deref(), Some("v2.0.0"));
+    }
 }
 
 fn set_executable_permission(path: &Path) -> anyhow::Result<()> {
