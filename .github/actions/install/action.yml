@@ -1,6 +1,28 @@
 name: "install kuori"
 description: "install kuori"
 
+inputs:
+  ssh-private-key:
+    description: "SSH private key content written to ~/.ssh/id_ed25519"
+    required: false
+    default: ""
+  ssh-host-name:
+    description: "SSH HostName"
+    required: false
+    default: ""
+  ssh-user:
+    description: "SSH User"
+    required: false
+    default: ""
+  ssh-host-alias:
+    description: "SSH Host alias used by kuori task.host"
+    required: false
+    default: "target"
+  ssh-port:
+    description: "SSH Port"
+    required: false
+    default: "22"
+
 runs:
   using: "composite"
   steps:
@@ -15,3 +37,48 @@ runs:
         echo ${{ github.workspace }}/bin >> $GITHUB_PATH
       env:
         GH_TOKEN: ${{ github.token }}
+
+    - name: Validate SSH inputs
+      if: ${{ inputs.ssh-private-key != '' || inputs.ssh-host-name != '' || inputs.ssh-user != '' }}
+      shell: bash
+      run: |
+        if [ -z "${{ inputs.ssh-private-key }}" ]; then
+          echo "ssh-private-key is required when SSH config is requested" >&2
+          exit 1
+        fi
+        if [ -z "${{ inputs.ssh-host-name }}" ] || [ -z "${{ inputs.ssh-user }}" ]; then
+          echo "ssh-host-name and ssh-user are required when ssh-private-key is set" >&2
+          exit 1
+        fi
+
+    - name: Prepare ~/.ssh
+      if: ${{ inputs.ssh-private-key != '' }}
+      shell: bash
+      run: |
+        mkdir -p ~/.ssh
+        chmod 700 ~/.ssh
+
+    - name: Install private key
+      if: ${{ inputs.ssh-private-key != '' }}
+      shell: bash
+      run: |
+        printf '%s\n' "${{ inputs.ssh-private-key }}" > ~/.ssh/id_ed25519
+        chmod 600 ~/.ssh/id_ed25519
+
+    - name: Install ssh config
+      if: ${{ inputs.ssh-private-key != '' }}
+      shell: bash
+      env:
+        SSH_HOST_ALIAS: ${{ inputs.ssh-host-alias }}
+        SSH_HOST_NAME: ${{ inputs.ssh-host-name }}
+        SSH_USER: ${{ inputs.ssh-user }}
+        SSH_PORT: ${{ inputs.ssh-port }}
+      run: |
+        cat > ~/.ssh/config <<EOF
+        Host ${SSH_HOST_ALIAS}
+          HostName ${SSH_HOST_NAME}
+          User ${SSH_USER}
+          Port ${SSH_PORT}
+          IdentityFile ~/.ssh/id_ed25519
+        EOF
+        chmod 600 ~/.ssh/config

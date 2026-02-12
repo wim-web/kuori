@@ -1,10 +1,15 @@
 name: install test
 on:
   pull_request:
-    
+
 jobs:
   release-linux:
     runs-on: ubuntu-latest
     steps:
-      - uses: wim-web/kuori/.github/actions/install@main
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: ./.github/actions/install
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+          ssh-host-name: ${{ secrets.SSH_HOST_NAME }}
+          ssh-user: ${{ secrets.SSH_USER }}
       - run: type kuori
