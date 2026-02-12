@@ -1,6 +1,7 @@
 mod config;
 mod ssh;
 mod ssh_config;
+mod update;
 mod util;
 
 use anyhow::Context;
@@ -15,7 +16,11 @@ use std::{
 
 // コマンドライン引数
 #[derive(Parser, Debug)]
+#[command(disable_version_flag = true)]
 struct CliArgs {
+    #[arg(short = 'v', long = "version", action = clap::ArgAction::SetTrue)]
+    version: bool,
+
     #[command(subcommand)]
     command: Option<CliCommand>,
 
@@ -30,6 +35,7 @@ struct CliArgs {
 enum CliCommand {
     Run(RunArgs),
     Validate(ValidateArgs),
+    Update,
 }
 
 #[derive(Args, Debug)]
@@ -101,11 +107,25 @@ async fn run_tasks(config: Config, task_names: Option<String>) -> anyhow::Result
     Ok(())
 }
 
+fn version_string() -> String {
+    let semver = option_env!("KUORI_SEMVER").unwrap_or("unknown");
+    let sha = option_env!("KUORI_GIT_SHA").unwrap_or("unknown");
+    format!("{semver}+{sha}")
+}
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let args = CliArgs::parse();
 
+    if args.version {
+        println!("{}", version_string());
+        return Ok(());
+    }
+
     match args.command {
+        Some(CliCommand::Update) => {
+            update::run()?;
+        }
         Some(CliCommand::Validate(validate_args)) => {
             load_config(&validate_args.config)?;
         }
