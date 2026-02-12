@@ -11,6 +11,8 @@ pub struct Task {
     pub working_dir: String,
     pub sudo: bool,
     pub environments: HashMap<String, String>,
+    pub timeout_sec: Option<u64>,
+    pub retry: Option<u32>,
 }
 
 // 設定の定義
@@ -32,6 +34,7 @@ impl Config {
             validate_non_empty(&task.host, "host", idx)?;
             validate_non_empty(&task.script_path, "script_path", idx)?;
             validate_non_empty(&task.working_dir, "working_dir", idx)?;
+            validate_timeout_sec(task.timeout_sec, idx)?;
 
             if !seen_names.insert(task.name.as_str()) {
                 bail!("tasks[{idx}].name is duplicated: {}", task.name);
@@ -50,6 +53,14 @@ fn validate_non_empty(value: &str, field_name: &str, task_index: usize) -> anyho
     Ok(())
 }
 
+fn validate_timeout_sec(timeout_sec: Option<u64>, task_index: usize) -> anyhow::Result<()> {
+    if timeout_sec == Some(0) {
+        bail!("tasks[{task_index}].timeout_sec must be greater than 0");
+    }
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::{Config, Task};
@@ -63,6 +74,8 @@ mod tests {
             working_dir: "/tmp".to_string(),
             sudo: false,
             environments: HashMap::new(),
+            timeout_sec: None,
+            retry: None,
         }
     }
 
@@ -96,5 +109,15 @@ mod tests {
             tasks: vec![task("deploy"), task("cleanup")],
         };
         assert!(config.validate().is_ok());
+    }
+
+    #[test]
+    fn validate_fails_when_timeout_sec_is_zero() {
+        let mut timeout_zero_task = task("deploy");
+        timeout_zero_task.timeout_sec = Some(0);
+        let config = Config {
+            tasks: vec![timeout_zero_task],
+        };
+        assert!(config.validate().is_err());
     }
 }

@@ -6,6 +6,8 @@
       "script_path": "./scripts/deploy-api.sh",
       "working_dir": "/tmp",
       "sudo": false,
+      "timeout_sec": 600,
+      "retry": 1,
       "environments": {
         "RUST_LOG": "info",
         "APP_ENV": "production"
@@ -17,6 +19,8 @@
       "script_path": "./scripts/restart-worker.sh",
       "working_dir": "/tmp",
       "sudo": true,
+      "timeout_sec": 120,
+      "retry": 2,
       "environments": {}
     }
   ]

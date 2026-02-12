@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Ok};
+use anyhow::anyhow;
 use ssh2::Session;
 use ssh2_config::SshConfig;
 use std::{
@@ -7,6 +7,8 @@ use std::{
     io::{self, Read, Write},
     net::TcpStream,
     path::Path,
+    thread,
+    time::{Duration, Instant},
 };
 
 use crate::util::generate_random_string;
@@ -84,6 +86,7 @@ impl KuoriClient {
         remote_script_dir: &Path,
         environments: &HashMap<String, String>,
         use_sudo: bool,
+        timeout_sec: Option<u64>,
     ) -> anyhow::Result<()> {
         let env_command: String = environments
             .iter()
@@ -111,10 +114,10 @@ impl KuoriClient {
         );
 
         // リモートでスクリプトを実行
-        let result = self.run_remote_command(session, command);
+        let result = self.run_remote_command(session, command, timeout_sec);
 
         // スクリプトを削除
-        self.run_remote_command(session, format!("rm {}", remote_script_path))?;
+        self.run_remote_command(session, format!("rm {}", remote_script_path), None)?;
 
         result
     }
@@ -139,20 +142,81 @@ impl KuoriClient {
     }
 
     // リモートでコマンドを実行して結果を返す
-    fn run_remote_command(&self, session: &Session, command: String) -> anyhow::Result<()> {
+    fn run_remote_command(
+        &self,
+        session: &Session,
+        command: String,
+        timeout_sec: Option<u64>,
+    ) -> anyhow::Result<()> {
         let mut channel = session.channel_session()?;
         channel.exec(&command)?;
 
-        let mut buffer = [0; 4096]; // 一度に読み取るバッファサイズを指定
+        let timeout = timeout_sec.map(Duration::from_secs);
+        let started_at = Instant::now();
+
+        session.set_blocking(false);
+        let mut stdout_eof = false;
+        let mut stderr_eof = false;
+        let mut stdout_buffer = [0; 4096];
+        let mut stderr_buffer = [0; 4096];
+
         loop {
-            let n = channel.read(&mut buffer)?;
-            if n == 0 {
-                break; // 読み込みが終了したらループを抜ける
+            let mut has_output = false;
+
+            if !stdout_eof {
+                match channel.read(&mut stdout_buffer) {
+                    Ok(0) => stdout_eof = true,
+                    Ok(n) => {
+                        io::stdout().write_all(&stdout_buffer[..n])?;
+                        io::stdout().flush()?;
+                        has_output = true;
+                    }
+                    Err(error) if error.kind() == io::ErrorKind::WouldBlock => {}
+                    Err(error) => {
+                        session.set_blocking(true);
+                        return Err(error.into());
+                    }
+                }
             }
-            io::stdout().write_all(&buffer[..n])?; // 取得したデータを即座に標準出力に表示
-            io::stdout().flush()?; // バッファをフラッシュしてリアルタイムで表示
+
+            if !stderr_eof {
+                match channel.stderr().read(&mut stderr_buffer) {
+                    Ok(0) => stderr_eof = true,
+                    Ok(n) => {
+                        io::stderr().write_all(&stderr_buffer[..n])?;
+                        io::stderr().flush()?;
+                        has_output = true;
+                    }
+                    Err(error) if error.kind() == io::ErrorKind::WouldBlock => {}
+                    Err(error) => {
+                        session.set_blocking(true);
+                        return Err(error.into());
+                    }
+                }
+            }
+
+            if channel.eof() && stdout_eof && stderr_eof {
+                break;
+            }
+
+            if let Some(limit) = timeout {
+                if started_at.elapsed() > limit {
+                    let _ = channel.close();
+                    session.set_blocking(true);
+                    anyhow::bail!(
+                        "コマンド実行がタイムアウトしました ({}秒): {}",
+                        limit.as_secs(),
+                        command
+                    );
+                }
+            }
+
+            if !has_output {
+                thread::sleep(Duration::from_millis(50));
+            }
         }
 
+        session.set_blocking(true);
         channel.wait_close()?;
         let exit_status = channel.exit_status()?;
         if exit_status != 0 {

@@ -60,6 +60,8 @@ struct CliArgs {
 サブコマンド未指定時は `run --task-names <NAMES>` と同じ動作になります。"
     )]
     task_names: Option<String>,
+    #[arg(long)]
+    dry_run: bool,
 }
 
 #[derive(Subcommand, Debug)]
@@ -102,6 +104,8 @@ struct RunArgs {
 例: --task-names deploy-api,restart-worker"
     )]
     task_names: Option<String>,
+    #[arg(long)]
+    dry_run: bool,
 }
 
 #[derive(Args, Debug)]
@@ -137,34 +141,96 @@ fn parse_task_names(task_names: Option<String>) -> Option<Vec<String>> {
     })
 }
 
-async fn run_tasks(config: Config, task_names: Option<String>) -> anyhow::Result<()> {
-    let ssh_config = read_ssh_config(SshConfigPath::default())?;
+fn format_env_keys(task: &config::Task) -> String {
+    if task.environments.is_empty() {
+        return "(none)".to_string();
+    }
 
-    let mut session_manager = SessionManager::new();
-    let client = KuoriClient::new(ssh_config);
+    let mut keys = task.environments.keys().cloned().collect::<Vec<String>>();
+    keys.sort();
+    keys.join(",")
+}
+
+async fn run_tasks(
+    config: Config,
+    task_names: Option<String>,
+    dry_run: bool,
+) -> anyhow::Result<()> {
     let parsed_task_names = parse_task_names(task_names);
-
     let should_execute = |task_name: &str| match &parsed_task_names {
         Some(tasks) => tasks.iter().any(|name| name == task_name),
         None => true,
     };
+    let tasks = config
+        .tasks
+        .into_iter()
+        .filter(|task| should_execute(&task.name))
+        .collect::<Vec<_>>();
 
-    for task in config.tasks {
-        if !should_execute(&task.name) {
-            continue;
+    if dry_run {
+        println!("dry-run: {} task(s) selected", tasks.len());
+        for (idx, task) in tasks.iter().enumerate() {
+            let timeout = task
+                .timeout_sec
+                .map(|sec| format!("{sec}s"))
+                .unwrap_or_else(|| "none".to_string());
+            let retry = task.retry.unwrap_or(0);
+            println!(
+                "[{}/{}] {}: host={} script={} working_dir={} sudo={} timeout={} retry={} env_keys={}",
+                idx + 1,
+                tasks.len(),
+                task.name,
+                task.host,
+                task.script_path,
+                task.working_dir,
+                task.sudo,
+                timeout,
+                retry,
+                format_env_keys(task)
+            );
         }
+        return Ok(());
+    }
 
+    let ssh_config = read_ssh_config(SshConfigPath::default())?;
+
+    let mut session_manager = SessionManager::new();
+    let client = KuoriClient::new(ssh_config);
+
+    for task in tasks {
         let script_path = Path::new(&task.script_path);
         let working_dir = Path::new(&task.working_dir);
+        let max_attempts = task.retry.unwrap_or(0) + 1;
 
-        client.exec_script(
-            &mut session_manager,
-            &task.host,
-            script_path,
-            working_dir,
-            &task.environments,
-            task.sudo,
-        )?;
+        for attempt in 1..=max_attempts {
+            let result = client.exec_script(
+                &mut session_manager,
+                &task.host,
+                script_path,
+                working_dir,
+                &task.environments,
+                task.sudo,
+                task.timeout_sec,
+            );
+
+            match result {
+                Ok(()) => break,
+                Err(error) if attempt < max_attempts => {
+                    eprintln!(
+                        "task `{}` failed (attempt {}/{}): {}",
+                        task.name, attempt, max_attempts, error
+                    );
+                }
+                Err(error) => {
+                    return Err(error).with_context(|| {
+                        format!(
+                            "task `{}` failed after {} attempt(s)",
+                            task.name, max_attempts
+                        )
+                    });
+                }
+            }
+        }
     }
 
     Ok(())
@@ -194,7 +260,7 @@ async fn main() -> anyhow::Result<()> {
         }
         Some(CliCommand::Run(run_args)) => {
             let config = load_config(&run_args.config)?;
-            run_tasks(config, run_args.task_names).await?;
+            run_tasks(config, run_args.task_names, run_args.dry_run).await?;
         }
         None => {
             let config_path = args
@@ -202,7 +268,7 @@ async fn main() -> anyhow::Result<()> {
                 .as_ref()
                 .context("`--config` is required (or use `kuori run|validate --config ...`)")?;
             let config = load_config(config_path)?;
-            run_tasks(config, args.task_names).await?;
+            run_tasks(config, args.task_names, args.dry_run).await?;
         }
     }
 
