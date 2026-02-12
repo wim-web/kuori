@@ -12,6 +12,12 @@ const REPOSITORY_GIT_URL: &str = "https://github.com/wim-web/kuori.git";
 const PACKAGE_NAME: &str = "kuori";
 const LINUX_X86_64_ASSET_NAME: &str = "kuori-x86_64-unknown-linux-gnu";
 
+struct ReleaseTag {
+    tag: String,
+    semver: String,
+    sha: String,
+}
+
 pub fn run() -> anyhow::Result<()> {
     if cfg!(target_os = "macos") {
         return run_update_via_cargo_install();
@@ -50,17 +56,21 @@ fn run_update_via_release_asset() -> anyhow::Result<()> {
 }
 
 fn run_update_via_cargo_install() -> anyhow::Result<()> {
-    let latest_tag = latest_tag_from_remote()?;
+    let latest = latest_tag_from_remote()?;
+    let short_sha: String = latest.sha.chars().take(7).collect();
+
     let output = Command::new("cargo")
         .args([
             "install",
             "--git",
             REPOSITORY_GIT_URL,
             "--tag",
-            &latest_tag,
+            &latest.tag,
             "--force",
             PACKAGE_NAME,
         ])
+        .env("KUORI_SEMVER", &latest.semver)
+        .env("KUORI_GIT_SHA", &short_sha)
         .output()
         .context("`cargo` コマンドの実行に失敗しました")?;
 
@@ -69,11 +79,14 @@ fn run_update_via_cargo_install() -> anyhow::Result<()> {
         bail!("`cargo install` に失敗しました: {}", stderr.trim());
     }
 
-    println!("kuori を最新バージョンに更新しました。tag: {}", latest_tag);
+    println!(
+        "kuori を最新バージョンに更新しました。tag: {}, version: {}+{}",
+        latest.tag, latest.semver, short_sha
+    );
     Ok(())
 }
 
-fn latest_tag_from_remote() -> anyhow::Result<String> {
+fn latest_tag_from_remote() -> anyhow::Result<ReleaseTag> {
     let output = Command::new("git")
         .args(["ls-remote", "--tags", "--refs", REPOSITORY_GIT_URL])
         .output()
@@ -85,7 +98,13 @@ fn latest_tag_from_remote() -> anyhow::Result<String> {
     }
 
     let stdout = String::from_utf8(output.stdout).context("タグ一覧のデコードに失敗しました")?;
-    pick_latest_semver_tag(&stdout).context("semver形式のタグが見つかりませんでした")
+    let tag = pick_latest_semver_tag(&stdout).context("semver形式のタグが見つかりませんでした")?;
+    let semver = semver_without_prefix(&tag)
+        .context("最新タグのsemver解析に失敗しました")?
+        .to_string();
+    let sha = resolve_tag_sha(&tag)?;
+
+    Ok(ReleaseTag { tag, semver, sha })
 }
 
 fn pick_latest_semver_tag(input: &str) -> Option<String> {
@@ -116,6 +135,49 @@ fn parse_semver(tag: &str) -> Option<(u64, u64, u64)> {
     }
 
     Some((major, minor, patch))
+}
+
+fn semver_without_prefix(tag: &str) -> Option<&str> {
+    parse_semver(tag)?;
+    tag.strip_prefix('v')
+}
+
+fn resolve_tag_sha(tag: &str) -> anyhow::Result<String> {
+    let peeled_ref = format!("refs/tags/{tag}^{{}}");
+    if let Some(sha) = ls_remote_sha_for_ref(&peeled_ref)? {
+        return Ok(sha);
+    }
+
+    let direct_ref = format!("refs/tags/{tag}");
+    if let Some(sha) = ls_remote_sha_for_ref(&direct_ref)? {
+        return Ok(sha);
+    }
+
+    bail!("タグ {} のSHAが取得できませんでした", tag);
+}
+
+fn ls_remote_sha_for_ref(reference: &str) -> anyhow::Result<Option<String>> {
+    let output = Command::new("git")
+        .args(["ls-remote", REPOSITORY_GIT_URL, reference])
+        .output()
+        .context("`git` コマンドの実行に失敗しました")?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        bail!("タグSHA取得に失敗しました: {}", stderr.trim());
+    }
+
+    let stdout = String::from_utf8(output.stdout).context("タグSHAのデコードに失敗しました")?;
+    let line = stdout.lines().next();
+    Ok(line.and_then(parse_sha_from_ls_remote_line))
+}
+
+fn parse_sha_from_ls_remote_line(line: &str) -> Option<String> {
+    let (sha, _) = line.split_once('\t')?;
+    if sha.is_empty() {
+        return None;
+    }
+    Some(sha.to_string())
 }
 
 fn staging_binary_path(current_exe: &Path) -> anyhow::Result<PathBuf> {
@@ -166,7 +228,7 @@ fn release_asset_name() -> anyhow::Result<&'static str> {
 
 #[cfg(test)]
 mod tests {
-    use super::pick_latest_semver_tag;
+    use super::{parse_sha_from_ls_remote_line, pick_latest_semver_tag, semver_without_prefix};
 
     #[test]
     fn picks_latest_tag() {
@@ -189,6 +251,19 @@ dddddddd\trefs/tags/v2.0.0
 ";
         let latest = pick_latest_semver_tag(input);
         assert_eq!(latest.as_deref(), Some("v2.0.0"));
+    }
+
+    #[test]
+    fn strips_v_prefix_from_semver_tag() {
+        assert_eq!(semver_without_prefix("v1.2.3"), Some("1.2.3"));
+        assert_eq!(semver_without_prefix("latest"), None);
+    }
+
+    #[test]
+    fn parses_sha_from_ls_remote_line() {
+        let line = "0123456789abcdef\trefs/tags/v1.0.0";
+        let sha = parse_sha_from_ls_remote_line(line);
+        assert_eq!(sha.as_deref(), Some("0123456789abcdef"));
     }
 }
 
