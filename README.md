@@ -53,7 +53,7 @@ kuori --config config.example.json --task-names deploy-api
       "working_dir": "/tmp",
       "sudo": false,
       "environments": {
-        "RUST_LOG": "info",
+        "LOG_LEVEL": "info",
         "APP_ENV": "production"
       }
     }
@@ -119,10 +119,7 @@ kuori validate --config config.json
 
 ### `update`
 
-`kuori` 自身を最新へ更新します。
-
-- macOS: `cargo install --git` で更新
-- Linux (`x86_64-unknown-linux-gnu`): GitHub Releases の最新バイナリで更新
+`kuori` 自身を最新へ更新します。GitHub Releases の最新バイナリをダウンロードして置き換えます。
 
 ```bash
 kuori update
