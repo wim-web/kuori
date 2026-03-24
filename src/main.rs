@@ -122,11 +122,25 @@ struct ValidateArgs {
 fn load_config(config_path: &PathBuf) -> anyhow::Result<Config> {
     let config_str = fs::read_to_string(config_path)
         .with_context(|| format!("failed to read config file: {}", config_path.display()))?;
-    let config: Config = serde_json::from_str(&config_str)
+    let mut config: Config = serde_json::from_str(&config_str)
         .with_context(|| format!("failed to parse config file: {}", config_path.display()))?;
     config
         .validate()
         .with_context(|| format!("invalid config file: {}", config_path.display()))?;
+
+    // script_path を設定ファイルのディレクトリからの相対パスとして解決
+    if let Some(config_dir) = config_path.parent() {
+        for task in &mut config.tasks {
+            let script_path = Path::new(&task.script_path);
+            if script_path.is_relative() {
+                task.script_path = config_dir
+                    .join(script_path)
+                    .to_string_lossy()
+                    .to_string();
+            }
+        }
+    }
+
     Ok(config)
 }
 
