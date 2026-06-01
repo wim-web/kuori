@@ -10,9 +10,9 @@ description: このリポジトリの Renovate PR を調査し、repo固有ル�
 ## 対象PR
 
 - 作成者が Renovate の open PR のみを対象にする。
-- このリポジトリで観測した Renovate PR author: `app/renovate`
+- このリポジトリで観測した Renovate PR author: `app/renovate`, `renovate[bot]`
 - このリポジトリで観測した Renovate commit author: `renovate[bot]`
-- issue comment の author が `renovate` になる場合があるが、PR author が `app/renovate` でない PR は対象外。
+- issue comment の author が `renovate` になる場合があるが、PR author が `app/renovate` または `renovate[bot]` でない PR は対象外。
 - base branch は `main` のみを対象にする。
 - Dependabot や人間が作成した PR は対象外。
 
@@ -52,7 +52,7 @@ description: このリポジトリの Renovate PR を調査し、repo固有ル�
 
 以下をすべて満たす PR だけマージしてよい。
 
-- PR author が `app/renovate`。
+- PR author が `app/renovate` または `renovate[bot]`。
 - base branch が `main`。
 - draft ではない。
 - mergeable で、merge conflict がない。
@@ -94,7 +94,7 @@ description: このリポジトリの Renovate PR を調査し、repo固有ル�
 ## マージしてはいけないもの
 
 - major update。
-- PR author が `app/renovate` ではない PR。
+- PR author が `app/renovate` または `renovate[bot]` ではない PR。
 - base branch が `main` ではない PR。
 - draft PR。
 - merge conflict がある PR。
