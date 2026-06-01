@@ -192,6 +192,7 @@ check が pending / queued / in_progress の場合は待つ。check が存在し
   - コメントには、どの skill 条件に該当したか、確認した upstream changelog / release notes / compare の要点、影響範囲、次に人間が確認すべき観点を含める。
   - check failure / pending / merge conflict / requested changes / 未解決 review comment が理由の場合も、その状態を簡潔に記録する。
   - 既に同等内容の保留コメントがある場合は、重複コメントを増やさず、その既存コメント URL を報告する。
+  - 既存コメントで十分な場合は、その PR は comment skipped として扱い、`renovate-needs-manual-review` を付ける。重複コメントは投稿しない。
 - 対象となる Renovate open PR がない場合は「対象なし」と報告する。
 - 判断に必要な release notes や migration guide が見つからない場合は、マージせず確認不能として報告する。
 
