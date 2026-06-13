@@ -104,7 +104,8 @@ description: このリポジトリの Renovate PR を調査し、repo固有ル�
 - changelog / release notes / migration guide を確認できず、影響範囲を判断できない PR。
 - breaking changes、deprecated API、peer dependency変更、runtime要件変更、設定変更の可能性が残る PR。
 - Go の `go` directive、toolchain、runtime 要件を上げる PR。
-- CLI の runtime dependency 変更としてリスクが高い PR。特に `github.com/spf13/cobra`、`github.com/kevinburke/ssh_config`、`golang.org/x/crypto` の major update や挙動変更を含むもの。
+- CLI の runtime dependency 変更で、major update、repo が使っている API の破壊的変更、認証・設定・ファイル形式・通信互換性に関わる明示的な挙動変更が release notes / changelog / compare で確認できる PR。
+- `github.com/spf13/cobra`、`github.com/kevinburke/ssh_config`、`golang.org/x/crypto` など CLI の主要 runtime dependency でも、minor / patch update で、変更ファイルが `go.mod` / `go.sum` だけ、必須 check が成功し、repo 内の利用箇所に影響する breaking change や migration が確認されない場合はマージしてよい。
 - `.github/actions/install/action.yml` を変更する PR。
 - `.github/workflows/release.yaml` の release 作成、permissions、artifact 名、target platform、secret / token 使用、tag trigger の意味を変える PR。
 - Docker image、Terraform、infra、deploy、database、migration に関わる PR。
