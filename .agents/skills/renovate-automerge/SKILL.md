@@ -76,6 +76,9 @@ description: このリポジトリの Renovate PR を調査し、repo固有ル�
 - `go.mod` と `go.sum` だけを変更する minor / patch update。
 - direct dependency と indirect dependency のどちらも対象にしてよい。
 - Renovate の artifact update notice で追加の Go module 更新が示されている場合も、`go.mod` / `go.sum` だけの変更で、追加更新が同じ minor / patch 範囲に収まり、release notes で破壊的変更がないと確認できる場合だけマージしてよい。
+- runtime dependency であることだけを blocker にしてはいけない。repo 内の import / 利用 API を検索し、upstream compare / release notes / changelog と突き合わせ、使っている API や CLI 実行時の挙動に明示的な breaking change、migration、runtime/config/通信互換性変更が確認されない場合は minor / patch update をマージしてよい。
+- artifact update で indirect dependency が上がった場合も、直接利用の有無と、利用中の direct dependency 経由で影響する変更かを確認する。repo が直接使っておらず、upstream 差分にも利用 API への明示的影響がない場合は、その indirect update だけで止めない。
+- `golang.org/x/crypto` の `ssh` update では、repo が使っている `ssh.Dial`、`ssh.ClientConfig`、`ssh.ParsePrivateKey`、`ssh.PublicKeys`、session execution などへの breaking / behavior change が確認できる場合だけ止める。`ParseAuthorizedKey`、`ParseKnownHosts`、`ssh/agent`、OpenPGP、x509roots など未使用領域の差分だけなら blocker にしない。
 - `go` directive または toolchain / runtime 要件を上げる変更はマージしてはいけない。
 
 許可する aqua update:
@@ -102,17 +105,17 @@ description: このリポジトリの Renovate PR を調査し、repo固有ル�
 - `test` または `release-linux` が success ではない PR。
 - requested changes または未解決の人間 review comment がある PR。
 - changelog / release notes / migration guide を確認できず、影響範囲を判断できない PR。
-- breaking changes、deprecated API、peer dependency変更、runtime要件変更、設定変更の可能性が残る PR。
+- breaking changes、deprecated API、peer dependency変更、runtime要件変更、設定変更が repo の利用 API や実行時挙動に影響する可能性を、release notes / changelog / compare または repo 内利用箇所から具体的に否定できない PR。
 - Go の `go` directive、toolchain、runtime 要件を上げる PR。
 - CLI の runtime dependency 変更で、major update、repo が使っている API の破壊的変更、認証・設定・ファイル形式・通信互換性に関わる明示的な挙動変更が release notes / changelog / compare で確認できる PR。
-- `github.com/spf13/cobra`、`github.com/kevinburke/ssh_config`、`golang.org/x/crypto` など CLI の主要 runtime dependency でも、minor / patch update で、変更ファイルが `go.mod` / `go.sum` だけ、必須 check が成功し、repo 内の利用箇所に影響する breaking change や migration が確認されない場合はマージしてよい。
+- `github.com/spf13/cobra`、`github.com/kevinburke/ssh_config`、`golang.org/x/crypto` など CLI の主要 runtime dependency でも、minor / patch update で、変更ファイルが `go.mod` / `go.sum` だけ、必須 check が成功し、repo 内の利用箇所に影響する breaking change や migration が確認されない場合はマージしてよい。これらは「runtime dependency なので影響確認が必要」というカテゴリ理由だけでは止めず、具体的な利用 API へのリスクが見つかった場合だけ止める。
 - `.github/actions/install/action.yml` を変更する PR。
 - `.github/workflows/release.yaml` の release 作成、permissions、artifact 名、target platform、secret / token 使用、tag trigger の意味を変える PR。
 - Docker image、Terraform、infra、deploy、database、migration に関わる PR。
 - source code、test code、README、設定例、migration を変更する PR。
 - `renovate.json` または Renovate 設定を変更する PR。
 - 複数 manager にまたがり、影響範囲が Go / aqua / GitHub Actions の単一カテゴリとして判断できない PR。
-- security update であっても、runtime / CI / release / install 動作への影響判断が必要な PR。
+- security update であっても、runtime / CI / release / install 動作への具体的な悪影響を否定できない PR。単に影響確認が必要という理由だけでは止めず、確認を実施して危険根拠が見つからなければマージしてよい。
 - この skill に明記されていない条件の PR。
 
 ## 必須 check
