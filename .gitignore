@@ -9,3 +9,5 @@ config.json
 
 local_install.bash
 test.bash
+
+renstiq.yaml
