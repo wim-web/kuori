@@ -8,12 +8,14 @@ import (
 	"net"
 	"os"
 	"path"
+	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
 	"time"
 
 	"golang.org/x/crypto/ssh"
+	"golang.org/x/crypto/ssh/knownhosts"
 )
 
 type SessionManager struct {
@@ -51,6 +53,15 @@ func connect(host string) (*ssh.Client, error) {
 		return nil, err
 	}
 
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get home directory: %w", err)
+	}
+	hostKeyCallback, err := knownhosts.New(filepath.Join(home, ".ssh", "known_hosts"))
+	if err != nil {
+		return nil, fmt.Errorf("could not load SSH known_hosts: %w", err)
+	}
+
 	keyData, err := os.ReadFile(params.IdentityFile)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read identity file: %w", err)
@@ -66,7 +77,7 @@ func connect(host string) (*ssh.Client, error) {
 		Auth: []ssh.AuthMethod{
 			ssh.PublicKeys(signer),
 		},
-		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		HostKeyCallback: hostKeyCallback,
 		Timeout:         30 * time.Second,
 	}
 
