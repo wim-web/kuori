@@ -1,6 +1,6 @@
 module github.com/wim-web/kuori
 
-go 1.26.1
+go 1.27.3
 
 require (
 	github.com/kevinburke/ssh_config v1.6.0
