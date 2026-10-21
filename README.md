@@ -138,3 +138,29 @@ kuori --version
 - `--task-names` は完全一致です（部分一致しません）
 - タスクは並列ではなく順次実行です
 - 標準出力はリモート実行結果をそのままストリーム表示します
+
+## ビルドとリリース
+
+CI のテストとリリースは、`go.mod` の `go` 行で指定した Go 1.26.10 を使用します。
+ローカルでも同じツールチェーンで検証・ビルドできます。
+
+```bash
+GOTOOLCHAIN=go1.26.10 go test ./...
+GOTOOLCHAIN=go1.26.10 go build -o kuori .
+go version -m ./kuori
+```
+
+### eMudhra 中間CA秘密鍵漏えいへの対応（2026-10-21）
+
+`kuori update` は HTTPS を使うため、[Go 公式のセキュリティ告知](https://groups.google.com/g/golang-announce/c/66pojueaQek)
+に従い、漏えいした中間CAを拒否する Go 1.26.10（または 1.27 系では 1.27.3 以降）で再ビルドする必要があります。
+`go.mod` の `go` 行は最低要件であり、既存の実行ファイルは更新しません。別のツールチェーンを使う場合も対策版であることを確認してください。
+
+配布済み [v2.0.5](https://github.com/wim-web/kuori/releases/tag/v2.0.5) の Linux amd64 と macOS arm64 の両バイナリは Go 1.26.1 製です。修正のマージ後、次の作業が必要です。
+
+1. 修正コミットから新しいバージョンのタグを作成し、リリースワークフローで Linux amd64 と macOS arm64 のバイナリを再ビルドする。
+2. ワークフローの `Verify binary Go version` で、両方の配布物のビルド情報が指定した Go バージョンと一致することを確認する。
+3. 新リリースを公開し、既存インストールを対策済みバイナリへ置き換える。初回の置換は、更新済みのブラウザ等で GitHub Releases から直接取得して行う。
+
+古い `kuori update` 自体も未対策の Go で HTTPS 通信するため、初回の更新手段には使用しないでください。
+インストール先の OS・CA ストアも最新にし、証明書検証は有効のまま使用してください。
